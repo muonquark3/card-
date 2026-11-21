@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1e293b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>카드 실적 & 피킹률 관리</title>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --header: #1e293b;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #16a34a;
+      --red: #dc2626;
+      --blue: #0055ff;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SamsungOne", "Malgun Gothic", sans-serif;
+      background: var(--bg); color: var(--text);
+      padding-bottom: 84px;
+    }
+    header {
+      background: var(--header); color: #fff;
+      padding: 14px 16px; position: sticky; top: 0; z-index: 50;
+      display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    header h1 { margin: 0; font-size: 16px; font-weight: 700; }
+    .header-btns { display: flex; gap: 6px; }
+    .btn-sm {
+      background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .btn-sm:active { background: rgba(255,255,255,0.3); }
+
+    .container { padding: 12px; max-width: 720px; margin: 0 auto; }
+    .panel {
+      background: var(--card); border-radius: 14px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+    }
+    .panel-title {
+      font-size: 14px; font-weight: 700; margin: 0 0 10px 0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    /* 대시보드 표 */
+    .dash-controls {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+    }
+    select, input {
+      font-size: 14px; padding: 9px 10px; border: 1px solid #cbd5e1;
+      border-radius: 8px; background: #fff; color: var(--text); width: 100%;
+    }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
+    th, td { padding: 9px 7px; border-bottom: 1px solid var(--border); }
+    th { background: #f8fafc; font-weight: 700; color: #334155; text-align: right; }
+    th:first-child, td:first-child { text-align: center; }
+    td { text-align: right; }
+    tr.total-row { background: #eff6ff; font-weight: 700; }
+    tr.clickable:active { background: #f1f5f9; }
+
+    /* 입력 폼 */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .form-full { grid-column: span 2; }
+    .label-tiny { font-size: 11px; color: var(--muted); margin-bottom: 3px; display: block; font-weight: 600; }
+    .btn-primary {
+      background: var(--primary); color: #fff; border: none; border-radius: 10px;
+      padding: 11px; font-size: 14px; font-weight: 700; width: 100%; cursor: pointer;
+      margin-top: 4px;
+    }
+    .btn-primary:active { background: var(--primary-dark); }
+
+    /* 월 선택 탭 */
+    .month-tabs {
+      display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px;
+    }
+    .month-tab {
+      padding: 6px 12px; border-radius: 20px; border: 1px solid #cbd5e1;
+      background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+    }
+    .month-tab.active { background: var(--header); color: #fff; border-color: var(--header); }
+
+    /* 상태바 & 프로그레스 */
+    .status-badge {
+      font-size: 12.5px; font-weight: 700; padding: 8px 10px; border-radius: 8px;
+      background: #f8fafc; margin-bottom: 10px; line-height: 1.4;
+    }
+    .ok { color: var(--green); background: #f0fdf4; }
+    .warn { color: var(--red); background: #fef2f2; }
+    .info { color: var(--blue); background: #eff6ff; }
+
+    .prog-wrap { margin: 8px 0; }
+    .prog-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+    progress { width: 100%; height: 10px; border-radius: 6px; overflow: hidden; }
+    progress::-webkit-progress-bar { background: #e2e8f0; }
+    progress::-webkit-progress-value { background: var(--primary); }
+
+    /* 내역 리스트 카드 (모바일 터치 최적화) */
+    .rec-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .rec-item:last-child { border-bottom: none; }
+    .rec-main { flex: 1; padding-right: 8px; }
+    .rec-top { font-size: 13.5px; font-weight: 700; }
+    .rec-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .rec-note { font-size: 11px; color: var(--blue); margin-top: 2px; }
+    .rec-right { text-align: right; }
+    .rec-amt { font-size: 14px; font-weight: 700; }
+    .rec-ben { font-size: 12px; color: var(--green); font-weight: 700; }
+    .rec-actions { margin-top: 5px; display: flex; gap: 4px; justify-content: flex-end; }
+    .mini-btn {
+      font-size: 11px; padding: 3px 7px; border-radius: 6px; border: 1px solid #cbd5e1;
+      background: #f8fafc; color: #334155; cursor: pointer;
+    }
+    .mini-btn.del { color: var(--red); border-color: #fecaca; background: #fef2f2; }
+
+    /* 하단 네비게이션 바 (One UI 스타일) */
+    nav {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 66px;
+      background: #fff; border-top: 1px solid var(--border);
+      display: grid; grid-template-columns: repeat(5, 1fr); z-index: 50;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    }
+    nav button {
+      background: none; border: none; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px;
+      font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
+    }
+    nav button.active { color: var(--primary); font-weight: 800; }
+    nav button span.ico { font-size: 18px; }
+
+    /* 수정 모달 */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 100; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 16px; padding: 18px; width: 100%; max-width: 400px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>💳 카드 실적 & 피킹률</h1>
+  <div class="header-btns">
+    <button class="btn-sm" onclick="document.getElementById('fileInput').click()">📂 불러오기</button>
+    <button class="btn-sm" onclick="exportJSON()">💾 JSON저장</button>
+    <input type="file" id="fileInput" accept=".json,application/json" style="display:none" onchange="importJSON(event)" />
+  </div>
+</header>
+
+<div class="container" id="app"></div>
+
+<nav>
+  <button id="nav-dashboard" class="active" onclick="switchView('dashboard')"><span class="ico">📊</span>대시보드</button>
+  <button id="nav-1" onclick="switchView('1')"><span class="ico">⛽</span>탄비티</button>
+  <button id="nav-2" onclick="switchView('2')"><span class="ico">🪙</span>더모아</button>
+  <button id="nav-3" onclick="switchView('3')"><span class="ico">🛍️</span>MG+S</button>
+  <button id="nav-4" onclick="switchView('4')"><span class="ico">🟡</span>톡마포</button>
+</nav>
+
+<!-- 내역 수정 모달 -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal-box">
+    <h3 style="margin:0 0 12px 0; font-size:16px;">내역 수정</h3>
+    <div class="form-grid">
+      <div>
+        <span class="label-tiny">날짜</span>
+        <input type="date" id="editDate" />
+      </div>
+      <div>
+        <span class="label-tiny">분류</span>
+        <select id="editCat"></select>
+      </div>
+      <div class="form-full">
+        <span class="label-tiny">사용처/가맹점</span>
+        <input type="text" id="editDesc" />
+      </div>
+      <div class="form-full">
+        <span class="label-tiny">사용금액</span>
+        <input type="number" id="editAmt" inputmode="numeric" />
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button class="btn-primary" style="background:#94a3b8;" onclick="closeEditModal()">취소</button>
+      <button class="btn-primary" onclick="saveEditModal()">수정 완료</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// 상수 및 카드별 규칙 정의 (Python 원본 100% 동일)
+// ============================================================================
+const STORAGE_KEY = "card_master_data_v1";
+
+const TANBITY_AVG_FUEL_PRICE = 1800;
+const TANBITY_FUEL_PER_LITER_BENEFIT = 110;
+const TANBITY_FUEL_USAGE_CAP = 200000;
+const TANBITY_FUEL_RATE = TANBITY_FUEL_PER_LITER_BENEFIT / TANBITY_AVG_FUEL_PRICE;
+const TANBITY_CATEGORIES = ["주유", "인쇼", "마트", "문구", "통신/4대보험", "O2O", "기타"];
+const TANBITY_PERF_SET = new Set(["문구", "통신/4대보험", "O2O", "기타"]);
+const TANBITY_NONPERF_SET = new Set(["주유", "인쇼", "마트"]);
+const TANBITY_RATES = { "문구": 0.10, "통신/4대보험": 0.10, "O2O": 0.10, "기타": 0.00, "인쇼": 0.15, "마트": 0.15 };
+const TANBITY_CAPS = { "문구": 10000, "통신/4대보험": 10000, "O2O": 10000, "인쇼": 15000, "마트": 15000 };
+const TANBITY_PREV_PERF_GOAL = 400000;
+const TANBITY_PERF_GOAL = 100000;
+
+const THEMORE_CATEGORIES = ["일반가맹점", "배달앱", "디지털콘텐츠", "이동통신요금", "백화점", "해외이용", "할부거래", "실적/적립제외"];
+const THEMORE_DOUBLE_CATEGORIES = new Set(["배달앱", "디지털콘텐츠", "이동통신요금", "백화점", "해외이용", "할부거래"]);
+const THEMORE_EXCLUDE_CATEGORY = "실적/적립제외";
+const THEMORE_PREV_PERF_GOAL = 300000;
+
+const MG_CATEGORIES = ["간편결제(10%)", "디지털구독(50%)", "멤버십(50%)", "일반이용(기타)", "실적제외항목"];
+const MG_EXCLUDE_CATEGORY = "실적제외항목";
+const MG_SUB_MERCHANTS = ["유튜브", "디즈니플러스", "WAVVE", "웨이브", "넷플릭스", "티빙"];
+const MG_MEM_MERCHANTS = ["네이버플러스멤버십", "네이버플러스", "컬리멤버스", "쿠팡와우멤버십", "쿠팡와우"];
+const MG_PAY_MERCHANTS = ["네이버페이", "카카오페이", "토스페이", "SSG페이", "11PAY", "11페이", "스마일페이"];
+
+const TOKMAPO_CATEGORIES = ["KB Pay 결제(5.5%)", "일반결제(0.5%)", "해외이용(0.5%)", "적립/실적제외항목"];
+const TOKMAPO_KBPAY_CAP = 10000;
+
+const CARD_META = {
+  "1": { name: "탄비티", cats: TANBITY_CATEGORIES, defaultCat: "주유" },
+  "2": { name: "더모아", cats: THEMORE_CATEGORIES, defaultCat: "일반가맹점" },
+  "3": { name: "MG+S", cats: MG_CATEGORIES, defaultCat: "간편결제(10%)" },
+  "4": { name: "톡마포", cats: TOKMAPO_CATEGORIES, defaultCat: "KB Pay 결제(5.5%)" }
+};
+
+// ============================================================================
+// 상태 관리
+// ============================================================================
+let masterData = { "1": {}, "2": {}, "3": {}, "4": {} };
+let currentView = "dashboard";
+let selectedDashMonth = getTodayMonth();
+let selectedCardMonth = { "1": getTodayMonth(), "2": getTodayMonth(), "3": getTodayMonth(), "4": getTodayMonth() };
+let editTarget = null;
+
+function getTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function getTodayMonth() {
+  return getTodayStr().slice(0, 7);
+}
+function getPrevMonthKey(mk) {
+  const [y, m] = mk.split("-").map(Number);
+  if (!y || !m) return "";
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+}
+function parseAmt(val) {
+  const n = Number(String(val || "0").replace(/,/g, "").trim());
+  return isNaN(n) ? 0 : Math.floor(n);
+}
+function fmt(n) {
+  return Math.floor(n).toLocaleString("ko-KR");
+}
+
+function loadStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      masterData = { "1": parsed["1"] || {}, "2": parsed["2"] || {}, "3": parsed["3"] || {}, "4": parsed["4"] || {} };
+    }
+  } catch (e) { console.error(e); }
+}
+function saveStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(masterData));
+}
+
+// ============================================================================
+// JSON 불러오기 / 내보내기 (PC card_master_data.json 100% 호환)
+// ============================================================================
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      masterData = { "1": parsed["1"] || {}, "2": parsed["2"] || {}, "3": parsed["3"] || {}, "4": parsed["4"] || {} };
+      saveStorage();
+      const months = getAllMonths();
+      if (months.length > 0 && !months.includes(selectedDashMonth)) {
+        selectedDashMonth = months[0];
+      }
+      render();
+      alert("JSON 데이터를 성공적으로 불러왔습니다.");
+    } catch (err) {
+      alert("올바른 JSON 파일이 아닙니다.");
+    }
+  };
+  reader.readAsText(file, "utf-8");
+  event.target.value = "";
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(masterData, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "card_master_data.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// 카드별 실적 및 혜택 계산 엔진 (Python 로직 1:1 이식)
+// ============================================================================
+function calcRawPerformance(cardId, mk) {
+  const recs = (masterData[cardId] && masterData[cardId][mk]) || [];
+  let perf = 0;
+  for (const r of recs) {
+    const cat = r["분류"] || "";
+    const amt = parseAmt(r["사용금액"]);
+    if (cardId === "1") {
+      if (TANBITY_PERF_SET.has(cat)) perf += amt;
+    } else if (cardId === "2") {
+      if (cat !== THEMORE_EXCLUDE_CATEGORY) perf += amt;
+    } else if (cardId === "3") {
+      if (cat !== MG_EXCLUDE_CATEGORY) perf += amt;
+    } else if (cardId === "4") {
+      if (cat !== "적립/실적제외항목") perf += amt;
+    }
+  }
+  return perf;
+}
+
+function evaluateMonth(cardId, mk) {
+  const recs = ((masterData[cardId] && masterData[cardId][mk]) || []).slice().sort((a, b) => (a["날짜"] || "").localeCompare(b["날짜"] || ""));
+  const prevMk = getPrevMonthKey(mk);
+  const prevPerf = prevMk ? calcRawPerformance(cardId, prevMk) : 0;
+
+  let perfSum = 0, nonperfSum = 0, totalBenefit = 0, accumSpent = 0;
+  const rows = [];
+
+  if (cardId === "1") {
+    const isEligible = prevPerf >= TANBITY_PREV_PERF_GOAL;
+    let fuelRem = TANBITY_FUEL_USAGE_CAP;
+    const usageByCat = {}, accrByCat = {};
+    TANBITY_CATEGORIES.forEach(c => { usageByCat[c] = 0; accrByCat[c] = 0; });
+
+    recs.forEach((r, idx) => {
+      const cat = r["분류"] || "기타";
+      const amt = parseAmt(r["사용금액"]);
+      let pVal = 0, npVal = 0, ben = 0;
+      if (TANBITY_PERF_SET.has(cat)) { pVal = amt; perfSum += amt; }
+      else if (TANBITY_NONPERF_SET.has(cat)) { npVal = amt; nonperfSum += amt; }
+      accumSpent += amt;
+
+      if (isEligible) {
+        if (cat === "주유") {
+          const elig = Math.min(fuelRem, amt);
+          ben = Math.floor(elig * TANBITY_FUEL_RATE);
+          fuelRem -= elig;
+        } else {
+          ben = Math.floor(amt * (TANBITY_RATES[cat] || 0));
+        }
+      }
+      totalBenefit += ben;
+      usageByCat[cat] = (usageByCat[cat] || 0) + amt;
+      accrByCat[cat] = (accrByCat[cat] || 0) + ben;
+      rows.push({ ...r, idx, amt, pVal, npVal, ben, note: "" });
+    });
+
+    return { prevPerf, isEligible, perfSum, nonperfSum, accumSpent, totalBenefit, rows, usageByCat, accrByCat };
+  }
+
+  if (cardId === "2") {
+    const isEligible = prevPerf >= THEMORE_PREV_PERF_GOAL;
+    let baseSum = 0, doubleSum = 0;
+    const seen = new Set();
+
+    recs.forEach((r, idx) => {
+      const date = r["날짜"] || "";
+      const cat = r["분류"] || "일반가맹점";
+      const merchant = (r["사용처"] || "").trim();
+      const amt = parseAmt(r["사용금액"]);
+      accumSpent += amt;
+      let pVal = 0, npVal = 0, ben = 0, note = "";
+
+      if (cat === THEMORE_EXCLUDE_CATEGORY) {
+        npVal = amt; nonperfSum += amt; note = "실적/적립 제외항목";
+      } else {
+        pVal = amt; perfSum += amt;
+        if (!isEligible) note = "전월 실적 미달(미적립)";
+        else if (amt < 5000) note = "5천원 미만(미적립)";
+        else {
+          const dKey = merchant ? `${date}|${merchant}` : null;
+          if (dKey && seen.has(dKey)) note = "동일가맹점 1일 1회 초과";
+          else {
+            if (dKey) seen.add(dKey);
+            const rem = amt % 1000;
+            if (rem > 0) {
+              if (THEMORE_DOUBLE_CATEGORIES.has(cat)) {
+                ben = rem * 2; doubleSum += ben; note = "더블 적립(2배)";
+              } else {
+                ben = rem; baseSum += ben; note = "기본 적립";
+              }
+            } else note = "끝자리 0원(미적립)";
+          }
+        }
+      }
+      totalBenefit += ben;
+      rows.push({ ...r, idx, amt, pVal, npVal, ben, note });
+    });
+
+    return { prevPerf, isEligible, perfSum, nonperfSum, accumSpent, totalBenefit, baseSum, doubleSum, rows };
+  }
+
+  if (cardId === "3") {
+    let cap = 0;
+    if (prevPerf >= 1000000) cap = 60000;
+    else if (prevPerf >= 600000) cap = 30000;
+    else if (prevPerf >= 300000) cap = 15000;
+    let remCap = cap;
+
+    recs.forEach((r, idx) => {
+      const cat = r["분류"] || "일반이용(기타)";
+      const merchant = (r["사용처"] || "").trim();
+      const amt = parseAmt(r["사용금액"]);
+      accumSpent += amt;
+      let pVal = 0, npVal = 0, ben = 0, note = "";
+
+      if (cat === MG_EXCLUDE_CATEGORY) {
+        npVal = amt; nonperfSum += amt; note = "실적제외항목";
+      } else {
+        pVal = amt; perfSum += amt;
+        if (cap === 0) note = "전월 실적 미달(할인한도 0원)";
+        else {
+          const cand = [];
+          if (cat === "디지털구독(50%)" || MG_SUB_MERCHANTS.some(m => merchant.includes(m))) {
+            cand.push([Math.floor(amt * 0.5), "디지털구독 50%"]);
+          }
+          if (cat === "멤버십(50%)" || MG_MEM_MERCHANTS.some(m => merchant.includes(m))) {
+            cand.push([Math.floor(amt * 0.5), "멤버십 50%"]);
+          }
+          if (cat === "간편결제(10%)" || MG_PAY_MERCHANTS.some(m => merchant.includes(m))) {
+            if (amt >= 10000) cand.push([Math.floor(amt * 0.1), "간편결제 10%"]);
+            else note = "간편결제 1만원 미만(할인제외)";
+          }
+          if (cand.length > 0) {
+            cand.sort((a, b) => b[0] - a[0]);
+            const [bestD, bestNote] = cand[0];
+            note = bestNote;
+            if (remCap > 0) {
+              const app = Math.min(remCap, bestD);
+              ben = app; remCap -= app;
+              if (app < bestD) note += " (한도 부분적용)";
+            } else note += " (월 할인한도 초과)";
+          }
+        }
+      }
+      totalBenefit += ben;
+      rows.push({ ...r, idx, amt, pVal, npVal, ben, note });
+    });
+
+    return { prevPerf, cap, remCap, perfSum, nonperfSum, accumSpent, totalBenefit, rows };
+  }
+
+  if (cardId === "4") {
+    let baseSum = 0, kbSum = 0, kbRem = TOKMAPO_KBPAY_CAP;
+    recs.forEach((r, idx) => {
+      const cat = r["분류"] || "일반결제(0.5%)";
+      const amt = parseAmt(r["사용금액"]);
+      accumSpent += amt;
+      let pVal = 0, npVal = 0, ben = 0, note = "";
+
+      if (cat === "적립/실적제외항목") {
+        npVal = amt; nonperfSum += amt; note = "적립제외 대상";
+      } else {
+        pVal = amt; perfSum += amt;
+        const baseAccr = Math.floor(amt * 0.005);
+        ben += baseAccr; baseSum += baseAccr; note = "기본 0.5% 적립";
+
+        if (cat === "KB Pay 결제(5.5%)") {
+          const extra = Math.floor(amt * 0.05);
+          if (kbRem > 0) {
+            const app = Math.min(kbRem, extra);
+            ben += app; kbSum += app; kbRem -= app;
+            note = app < extra ? "KB Pay 5.5% (5%한도 부분적용)" : "KB Pay 5.5% 중복적립";
+          } else note = "기본 0.5% (KB Pay 한도초과)";
+        } else if (cat === "해외이용(0.5%)") {
+          note = "해외 기본 0.5% (KB Pay 제외)";
+        }
+      }
+      totalBenefit += ben;
+      rows.push({ ...r, idx, amt, pVal, npVal, ben, note });
+    });
+
+    return { perfSum, nonperfSum, accumSpent, totalBenefit, baseSum, kbSum, kbRem, rows };
+  }
+}
+
+function getAllMonths() {
+  const s = new Set([getTodayMonth()]);
+  ["1", "2", "3", "4"].forEach(id => Object.keys(masterData[id] || {}).forEach(m => s.add(m)));
+  return Array.from(s).sort().reverse();
+}
+
+// ============================================================================
+// 화면 렌더링
+// ============================================================================
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+  document.getElementById(`nav-${view}`).classList.add("active");
+  render();
+  window.scrollTo(0, 0);
+}
+
+function render() {
+  const app = document.getElementById("app");
+  if (currentView === "dashboard") {
+    const months = getAllMonths();
+    if (!months.includes(selectedDashMonth)) selectedDashMonth = months[0];
+
+    let totP = 0, totNP = 0, totS = 0, totB = 0;
+    let rowsHtml = "";
+
+    ["1", "2", "3", "4"].forEach(id => {
+      const res = evaluateMonth(id, selectedDashMonth);
+      totP += res.perfSum; totNP += res.nonperfSum; totS += res.accumSpent; totB += res.totalBenefit;
+      const pick = res.accumSpent > 0 ? ((res.totalBenefit / res.accumSpent) * 100).toFixed(2) + "%" : "0.00%";
+      rowsHtml += `
+        <tr class="clickable" onclick="switchView('${id}')">
+          <td style="font-weight:700; color:#1e293b;">${CARD_META[id].name}</td>
+          <td>${fmt(res.perfSum)}</td>
+          <td>${fmt(res.nonperfSum)}</td>
+          <td>${fmt(res.accumSpent)}</td>
+          <td style="color:#16a34a; font-weight:700;">${fmt(res.totalBenefit)}</td>
+          <td style="color:#2563eb; font-weight:700;">${pick}</td>
+        </tr>`;
+    });
+
+    const totPick = totS > 0 ? ((totB / totS) * 100).toFixed(2) + "%" : "0.00%";
+    app.innerHTML = `
+      <div class="panel">
+        <div class="dash-controls">
+          <span style="font-weight:800; font-size:15px;">월별 종합 현황</span>
+          <select style="width:130px; font-weight:700;" onchange="selectedDashMonth=this.value; render();">
+            ${months.map(m => `<option value="${m}" ${m === selectedDashMonth ? "selected" : ""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>카드</th><th>실적</th><th>미실적</th><th>총사용</th><th>총혜택</th><th>피킹률</th></tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+              <tr class="total-row">
+                <td>합계</td>
+                <td>${fmt(totP)}</td>
+                <td>${fmt(totNP)}</td>
+                <td>${fmt(totS)}</td>
+                <td style="color:#16a34a;">${fmt(totB)}</td>
+                <td style="color:#2563eb;">${totPick}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin:10px 0 0 0; font-size:11.5px; color:#64748b;">💡 카드 행을 터치하면 해당 카드 입력/상세 화면으로 이동합니다.</p>
+      </div>
+    `;
+    return;
+  }
+
+  // 개별 카드 상세 화면
+  const id = currentView;
+  const meta = CARD_META[id];
+  const cardMonths = Array.from(new Set([getTodayMonth(), ...Object.keys(masterData[id] || {})])).sort().reverse();
+  if (!cardMonths.includes(selectedCardMonth[id])) selectedCardMonth[id] = cardMonths[0];
+  const mk = selectedCardMonth[id];
+  const res = evaluateMonth(id, mk);
+
+  // 상태 요약 HTML 생성
+  let statusHtml = "";
+  if (id === "1") {
+    statusHtml = `
+      <div class="status-badge ${res.isEligible ? "ok" : "warn"}">
+        ${res.isEligible
+          ? `✅ 전월 실적 달성 (${fmt(res.prevPerf)}원 / 40만) ➔ 당월 혜택 적용`
+          : `❌ 전월 실적 미달 (${fmt(res.prevPerf)}원 / 40만) ➔ 당월 혜택 0원`}
+      </div>
+      ${Object.entries(TANBITY_CAPS).map(([cat, cap]) => {
+        const usedAmt = res.usageByCat[cat] || 0;
+        const usedAccr = res.accrByCat[cat] || 0;
+        const remPerf = Math.max(0, TANBITY_PERF_GOAL - usedAmt);
+        return `
+          <div class="prog-wrap">
+            <div class="prog-header">
+              <span><b>${cat}</b> (실적 ${fmt(usedAmt)} / 남음 ${fmt(remPerf)})</span>
+              <span style="color:#0055ff; font-weight:700;">한도 남음 ${fmt(Math.max(0, cap - usedAccr))}원</span>
+            </div>
+            <progress value="${Math.min(usedAccr, cap)}" max="${cap}"></progress>
+          </div>`;
+      }).join("")}
+    `;
+  } else if (id === "2") {
+    const remGoal = Math.max(0, THEMORE_PREV_PERF_GOAL - res.perfSum);
+    statusHtml = `
+      <div class="status-badge ${res.isEligible ? "ok" : "warn"}">
+        전월 실적: ${fmt(res.prevPerf)}원 (${res.isEligible ? "적립 정상 적용" : "30만 미달 ➔ 적립 0원"})
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-header">
+          <span>당월 실적: <b>${fmt(res.perfSum)}원</b></span>
+          <span style="color:${remGoal === 0 ? "#16a34a" : "#dc2626"}; font-weight:700;">
+            ${remGoal === 0 ? "🎉 익월 실적 달성!" : `익월 실적까지 ${fmt(remGoal)}원 남음`}
+          </span>
+        </div>
+        <progress value="${Math.min(res.perfSum, THEMORE_PREV_PERF_GOAL)}" max="${THEMORE_PREV_PERF_GOAL}"></progress>
+      </div>
+      <div style="font-size:12px; display:flex; justify-content:space-between; margin-top:6px;">
+        <span>기본: ${fmt(res.baseSum)}원 / 더블: ${fmt(res.doubleSum)}원</span>
+        <span style="color:#0055ff; font-weight:700;">총 적립: ${fmt(res.totalBenefit)}원</span>
+      </div>
+    `;
+  } else if (id === "3") {
+    statusHtml = `
+      <div class="status-badge info">
+        전월 실적: ${fmt(res.prevPerf)}원 ➔ 월 할인한도 <b>${fmt(res.cap)}원</b>
+      </div>
+      <div class="prog-wrap">
+        <div class="prog-header">
+          <span>당월 실적: <b>${fmt(res.perfSum)}원</b></span>
+          <span style="color:${res.remCap > 0 ? "#0055ff" : "#dc2626"}; font-weight:700;">
+            한도 잔여: ${fmt(res.remCap)}원
+          </span>
+        </div>
+        <progress value="${res.totalBenefit}" max="${Math.max(1, res.cap)}"></progress>
+      </div>
+      <div style="font-size:12px; text-align:right; color:#dc2626; font-weight:700;">
+        총 할인(혜택): ${fmt(res.totalBenefit)}원
+      </div>
+    `;
+  } else if (id === "4") {
+    statusHtml = `
+      <div class="status-badge info">전월 실적조건 없음 / KB Pay 5% 특별적립 월 1만P 한도</div>
+      <div class="prog-wrap">
+        <div class="prog-header">
+          <span>KB Pay 추가적립: <b>${fmt(res.kbSum)}P / 10,000P</b></span>
+          <span style="color:${res.kbRem > 0 ? "#16a34a" : "#dc2626"}; font-weight:700;">
+            잔여: ${fmt(res.kbRem)}P
+          </span>
+        </div>
+        <progress value="${res.kbSum}" max="${TOKMAPO_KBPAY_CAP}"></progress>
+      </div>
+      <div style="font-size:12px; display:flex; justify-content:space-between; margin-top:6px;">
+        <span>기본(0.5%): ${fmt(res.baseSum)}P</span>
+        <span style="color:#0055ff; font-weight:700;">총 적립: ${fmt(res.totalBenefit)}P</span>
+      </div>
+    `;
+  }
+
+  // 거래 내역 리스트 HTML
+  const listHtml = res.rows.length === 0
+    ? `<p style="text-align:center; color:#94a3b8; font-size:13px; padding:16px 0;">등록된 내역이 없습니다.</p>`
+    : res.rows.map(r => `
+        <div class="rec-item">
+          <div class="rec-main">
+            <div class="rec-top">${r["사용처"] || "(사용처 없음)"} <span style="font-size:11px; font-weight:600; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:6px;">${r["분류"]}</span></div>
+            <div class="rec-sub">${r["날짜"]} · ${r.pVal > 0 ? "실적 인정" : "미실적"}</div>
+            ${r.note ? `<div class="rec-note">${r.note}</div>` : ""}
+          </div>
+          <div class="rec-right">
+            <div class="rec-amt">${fmt(r.amt)}원</div>
+            <div class="rec-ben">+${fmt(r.ben)}원</div>
+            <div class="rec-actions">
+              <button class="mini-btn" onclick="openEditModal('${id}', '${mk}', ${r.idx})">수정</button>
+              <button class="mini-btn del" onclick="deleteRecord('${id}', '${mk}', ${r.idx})">삭제</button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+
+  app.innerHTML = `
+    <div class="panel">
+      <div class="panel-title">➕ [${meta.name}] 거래 내역 추가</div>
+      <div class="form-grid">
+        <div>
+          <span class="label-tiny">날짜</span>
+          <input type="date" id="inDate" value="${getTodayStr()}" />
+        </div>
+        <div>
+          <span class="label-tiny">분류</span>
+          <select id="inCat">
+            ${meta.cats.map(c => `<option value="${c}" ${c === meta.defaultCat ? "selected" : ""}>${c}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <span class="label-tiny">사용처/가맹점</span>
+          <input type="text" id="inDesc" placeholder="예: 이마트, 쿠팡" />
+        </div>
+        <div>
+          <span class="label-tiny">금액 (원)</span>
+          <input type="number" id="inAmt" inputmode="numeric" placeholder="예: 5999" />
+        </div>
+        <div class="form-full">
+          <button class="btn-primary" onclick="addRecord('${id}')">내역 추가하기</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="month-tabs">
+      ${cardMonths.map(m => `<button class="month-tab ${m === mk ? "active" : ""}" onclick="selectedCardMonth['${id}']='${m}'; render();">${m}</button>`).join("")}
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <span>📈 ${mk} 실적 및 혜택 현황</span>
+        <span style="font-size:12px; color:#2563eb;">피킹률 ${res.accumSpent > 0 ? ((res.totalBenefit / res.accumSpent)*100).toFixed(2) : "0.00"}%</span>
+      </div>
+      ${statusHtml}
+      <div style="display:flex; justify-content:space-around; background:#f8fafc; border-radius:10px; padding:10px; margin-top:10px; font-size:12.5px; text-align:center;">
+        <div><div style="color:#64748b;">당월 실적</div><b>${fmt(res.perfSum)}원</b></div>
+        <div><div style="color:#64748b;">총 사용액</div><b>${fmt(res.accumSpent)}원</b></div>
+        <div><div style="color:#64748b;">총 혜택</div><b style="color:#16a34a;">${fmt(res.totalBenefit)}원</b></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">🧾 ${mk} 상세 내역 (${res.rows.length}건)</div>
+      ${listHtml}
+    </div>
+  `;
+}
+
+// ============================================================================
+// 추가 / 수정 / 삭제 핸들러
+// ============================================================================
+function addRecord(cardId) {
+  const date = document.getElementById("inDate").value.trim();
+  const cat = document.getElementById("inCat").value;
+  const desc = document.getElementById("inDesc").value.trim();
+  const amtRaw = document.getElementById("inAmt").value.replace(/,/g, "").trim();
+
+  if (!date || !amtRaw || isNaN(Number(amtRaw))) {
+    alert("날짜와 금액을 정확히 입력해 주세요.");
+    return;
+  }
+  const mk = date.slice(0, 7);
+  if (!masterData[cardId][mk]) masterData[cardId][mk] = [];
+  masterData[cardId][mk].push({
+    "날짜": date,
+    "분류": cat,
+    "사용처": desc,
+    "사용금액": String(Math.floor(Number(amtRaw)))
+  });
+  masterData[cardId][mk].sort((a, b) => (a["날짜"] || "").localeCompare(b["날짜"] || ""));
+  selectedCardMonth[cardId] = mk;
+  saveStorage();
+  render();
+}
+
+function deleteRecord(cardId, mk, sortedIdx) {
+  if (!confirm("해당 내역을 삭제하시겠습니까?")) return;
+  const sorted = masterData[cardId][mk].slice().sort((a, b) => (a["날짜"] || "").localeCompare(b["날짜"] || ""));
+  sorted.splice(sortedIdx, 1);
+  masterData[cardId][mk] = sorted;
+  saveStorage();
+  render();
+}
+
+function openEditModal(cardId, mk, sortedIdx) {
+  const sorted = masterData[cardId][mk].slice().sort((a, b) => (a["날짜"] || "").localeCompare(b["날짜"] || ""));
+  const item = sorted[sortedIdx];
+  editTarget = { cardId, mk, sortedIdx };
+
+  document.getElementById("editDate").value = item["날짜"];
+  const catSel = document.getElementById("editCat");
+  catSel.innerHTML = CARD_META[cardId].cats.map(c => `<option value="${c}" ${c === item["분류"] ? "selected" : ""}>${c}</option>`).join("");
+  document.getElementById("editDesc").value = item["사용처"] || "";
+  document.getElementById("editAmt").value = parseAmt(item["사용금액"]);
+  document.getElementById("editModal").classList.add("open");
+}
+
+function closeEditModal() {
+  document.getElementById("editModal").classList.remove("open");
+  editTarget = null;
+}
+
+function saveEditModal() {
+  if (!editTarget) return;
+  const { cardId, mk, sortedIdx } = editTarget;
+  const newDate = document.getElementById("editDate").value.trim();
+  const newCat = document.getElementById("editCat").value;
+  const newDesc = document.getElementById("editDesc").value.trim();
+  const newAmt = parseAmt(document.getElementById("editAmt").value);
+
+  const sorted = masterData[cardId][mk].slice().sort((a, b) => (a["날짜"] || "").localeCompare(b["날짜"] || ""));
+  sorted.splice(sortedIdx, 1);
+  masterData[cardId][mk] = sorted;
+
+  const newMk = newDate.slice(0, 7);
+  if (!masterData[cardId][newMk]) masterData[cardId][newMk] = [];
+  masterData[cardId][newMk].push({
+    "날짜": newDate,
+    "분류": newCat,
+    "사용처": newDesc,
+    "사용금액": String(newAmt)
+  });
+  masterData[cardId][newMk].sort((a, b) => (a["날짜"] || "").localeCompare(b["날짜"] || ""));
+  selectedCardMonth[cardId] = newMk;
+
+  saveStorage();
+  closeEditModal();
+  render();
+}
+
+// 초기 실행
+loadStorage();
+render();
+</script>
+</body>
+</html>
